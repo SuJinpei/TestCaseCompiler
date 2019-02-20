@@ -110,21 +110,10 @@ import time
 import queue
 import pdbc.trafodion.connector as connector
 import unittest
-import traceback
+import traceback""")
 
-
-config = {
-        'host': '10.10.14.65',
-        'port': 23400,
-        'tenant_name': 'ESGYNDB',
-        'schema': 'seabase',
-        'user': 'trafodion',
-        'password': 'traf123',
-        'charset': 'utf-8',
-        'use_unicode': True,
-        'get_warnings': True,
-        'connection_timeout': 1000
-    }
+    output_file.write("\n\nconfig = {%s}" % (p[3][3:len(p[3]) - 4]))
+    output_file.write("""
 
 
 class QueryTerminal (threading.Thread):
@@ -173,14 +162,14 @@ class QueryTerminal (threading.Thread):
                     time_start = time.time()
                     self.cursor.execute(query[1])
                     time_end = time.time()
-                    print("[INFO][SUCCESS and ELAPSED]", round(time_end - time_start, 3), "s")
+                    print("[INFO]success after ", round(time_end - time_start, 3), "s")
 
                 if query[0] == 2:
                     print("[INFO] fetch result")
                     time_start = time.time()
                     self.stored_result_dict[query[1]] = self.cursor.fetchall()
                     time_end = time.time()
-                    print("[INFO][SUCCESS and ELAPSED]", round(time_end - time_start, 3), "s")
+                    print("[INFO] success after ", round(time_end - time_start, 3), "s")
 
             except connector.Warning as w:
                 print("query:", query[1], w)
