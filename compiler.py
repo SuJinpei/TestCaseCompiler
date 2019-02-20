@@ -90,11 +90,27 @@ def find_column(cases_text, token):
     return (token.lexpos - line_start) + 1
 
 
+def print_code_fragment(t):
+    max_pos = len(text) - 1
+    fragment_start = text.rfind('\n', 0, t.lexpos)
+    fragment_end = text.find('\n', t.lexpos, max_pos)
+
+    if fragment_start < 0:
+        fragment_start = 0
+
+    if fragment_end < 0:
+        fragment_end = max_pos
+
+    sys.stderr.write("[Cases Code Fragment]\n...%s\n" % (text[fragment_start:fragment_end]))
+    sys.stderr.write("%s^\n...\n" % (" " * (find_column(text, t) + 1)))
+
+
 def t_error(t):
-    pass
+    sys.stderr.write("[Lex Error] Line:%s,Column:%s\n" % (t.lineno, find_column(text, t)))
+    print_code_fragment(t)
+
 
 lexer = lex.lex()
-
 
 
 case_name = ""
@@ -489,6 +505,7 @@ def p_case_end(p):
 
 def p_error(p):
     sys.stderr.write("[Parse Error][Line:%s, Column:%s]: Invalid Token:\'%s\'\n" % (p.lineno, find_column(text, p), p.value))
+    print_code_fragment(p)
 
 
 parser = yacc.yacc()
