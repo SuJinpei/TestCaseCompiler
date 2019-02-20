@@ -7,6 +7,9 @@ if len(sys.argv) != 2:
     print("Usage:", sys.argv[0], "test_case_file")
     exit()
 
+case_file = open(sys.argv[1])
+text = case_file.read()
+
 
 reserved_key_words = {
     'Async': 'Async',
@@ -46,6 +49,7 @@ tokens = [
 
 def t_RawString(t):
     r"""\"\"\"[^\"]*\"\"\""""
+    t.lexer.lineno += t.value.count('\n')
     return t
 
 
@@ -63,7 +67,7 @@ t_EqualSign = r"="
 t_LParenthesis = r"\("
 t_RParenthesis = r"\)"
 
-t_ignore = " \t\n"
+t_ignore = " \t"
 t_ignore_comment = r"\#.*"
 
 
@@ -76,7 +80,14 @@ def t_ID(t):
 def t_newline(t):
     r"""\n+"""
     t.lexer.lineno += len(t.value)
-    print(t.lexer.lineno)
+
+
+# Compute column.
+#     cases_text is the cases text string
+#     token is a token instance
+def find_column(cases_text, token):
+    line_start = cases_text.rfind('\n', 0, token.lexpos) + 1
+    return (token.lexpos - line_start) + 1
 
 
 def t_error(t):
@@ -477,13 +488,10 @@ def p_case_end(p):
 
 
 def p_error(p):
-    output_file.write("Invalid syntax:%s\n" % p)
+    sys.stderr.write("[Parse Error][Line:%s, Column:%s]: Invalid Token:\'%s\'\n" % (p.lineno, find_column(text, p), p.value))
 
 
 parser = yacc.yacc()
-
-case_file = open(sys.argv[1])
-text = case_file.read()
 
 # parser.parse(text, debug=True)
 parser.parse(text)
