@@ -513,9 +513,9 @@ def p_error(p):
 parser = yacc.yacc()
 
 # parser.parse(text, debug=True)
-# parser.parse(text)
+parser.parse(text)
 
-lexer.input(text)
-
-for tk in lexer:
-    print(tk)
+# lexer.input(text)
+#
+# for tk in lexer:
+#     print(tk)
