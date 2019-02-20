@@ -91,7 +91,7 @@ def find_column(cases_text, token):
 
 
 def t_error(t):
-    sys.stderr.write("[Lex Error][Line:%s, Column:%s]" % (t.lineno, find_column(text, t)))
+    pass
 
 lexer = lex.lex()
 
