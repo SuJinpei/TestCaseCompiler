@@ -116,6 +116,7 @@ lexer = lex.lex()
 case_name = ""
 line_offset = 0
 output_file = open("real_test.py", mode="w", encoding="utf-8")
+inner_case_seq = 1
 
 
 def p_spec(p):
@@ -259,9 +260,10 @@ def p_case_name(p):
 
 def p_case_start(p):
     r"""CaseStart : LBrace"""
-    global line_offset
+    global line_offset, inner_case_seq
     line_offset = 4
-    output_file.write("\n%sdef test_%s(self):\n" % (" " * line_offset, case_name))
+    output_file.write("\n%sdef test_%s_%s(self):\n" % (" " * line_offset, inner_case_seq, case_name))
+    inner_case_seq += 1
     line_offset += 4
     output_file.write("%sterminals = []\n" % (" " * line_offset))
     output_file.write("%stry:\n" % (" " * line_offset))
