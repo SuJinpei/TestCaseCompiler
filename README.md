@@ -11,13 +11,14 @@ A tool translate sql test case to python code.
 * Step 2: install Trafodion python connector https://github.com/esgyn/utilities/tree/AdvEnt2.6/python-driver
 
 * Step 3: install lastest version PLY https://github.com/dabeaz/ply/releases
+
 ```
     > python3 setup.py install
 ```
 
-* Step 3: write your test cases file
+* Step 4: write your test cases file
 
-* Step 4: compile you test cases file
+* Step 5: compile you test cases file
 
 ```
     > python3 compiler.py your_test_case_file
@@ -25,7 +26,7 @@ A tool translate sql test case to python code.
 
   now real_test.py will be generated on current directory.
 
-* Step 5: run test cases
+* Step 6: run test cases
 
 
 ```
