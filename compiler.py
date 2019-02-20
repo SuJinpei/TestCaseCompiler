@@ -48,7 +48,7 @@ tokens = [
 
 
 def t_RawString(t):
-    r"""\"\"\"[^\"]*\"\"\""""
+    r"""\"\"\".*\"\"\""""
     t.lexer.lineno += t.value.count('\n')
     return t
 
@@ -513,9 +513,9 @@ def p_error(p):
 parser = yacc.yacc()
 
 # parser.parse(text, debug=True)
-parser.parse(text)
+# parser.parse(text)
 
-# lexer.input(text)
+lexer.input(text)
 
-# for tk in lexer:
-#     print(tk)
+for tk in lexer:
+    print(tk)
