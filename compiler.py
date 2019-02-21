@@ -145,6 +145,7 @@ import time
 import queue
 import pdbc.trafodion.connector as connector
 import unittest
+import re
 import traceback""")
 
     output_file.write("\n\nconfig = {%s}" % (p[3][3:len(p[3]) - 4]))
@@ -174,7 +175,7 @@ class QueryTerminal (threading.Thread):
         except Warning as w:
             print("Connection Warning: ", w)
         except Exception as e:
-            print("Connection Exception: ", e)
+            print("Connection Exception: ", e.args)
             raise FatalError(e.args)
 
         # item of queue is a list
@@ -220,12 +221,10 @@ class QueryTerminal (threading.Thread):
 
                 self.last_execution_result = [0, "operation success"]
 
-            except connector.Warning as w:
-                print("query:", query[1], w)
-                self.last_execution_result = [1, w]
             except connector.Error as e:
-                print("query:", query[1], e)
-                self.last_execution_result = [2, e]
+                code = self.exception_to_code(e)
+                print("query exception:[code]%s, [msg]:%s" % (code, e))
+                self.last_execution_result = [self.exception_to_code(e), e]
 
             self.task_queue.task_done()
 
@@ -256,6 +255,12 @@ class QueryTerminal (threading.Thread):
     def wait_finish(self):
         self.task_queue.join()
 
+    def exception_to_code(self, e):
+        m = re.findall(r"\*\*\* ERROR\[(.+?)\]", str(e))
+        if m is None:
+            return 0
+        else:
+            return int(m[0])
 
 class MyTestCase (unittest.TestCase):
 """)
@@ -522,11 +527,14 @@ def p_case_end(p):
     global line_offset
     line_offset -= 4
 
+    output_file.write("%sexcept FatalError as fe:\n" % (" " * line_offset))
+    output_file.write("%s    print(\"Fatal Error:\", fe)\n" % (" " * line_offset))
+    output_file.write("%s    exit(-1)\n" % (" " * line_offset))
     output_file.write("%sexcept AssertionError as ae:\n" % (" " * line_offset))
-    output_file.write("%s    print(\"Test Case Assertion Error: \")\n" % (" " * line_offset))
+    output_file.write("%s    print(\"Test Case Assertion Error: \", ae.args)\n" % (" " * line_offset))
     output_file.write("%s    self.fail(ae)\n" % (" " * line_offset))
     output_file.write("%sexcept Exception as e:\n" % (" " * line_offset))
-    output_file.write("%s    print(\"Test Case Exception: \")\n" % (" " * line_offset))
+    output_file.write("%s    print(\"Test Case Exception: \", e.args)\n" % (" " * line_offset))
     output_file.write("%s    self.fail(e)\n" % (" " * line_offset))
     output_file.write("%sfinally:\n" % (" " * line_offset))
     line_offset += 4
