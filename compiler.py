@@ -43,6 +43,7 @@ tokens = [
     "EqualSign",
     "LParenthesis",
     "RParenthesis",
+    "Point",
     "ID"
 ] + list(reserved_key_words.values())
 
@@ -66,6 +67,7 @@ t_Semicolon = r";"
 t_EqualSign = r"="
 t_LParenthesis = r"\("
 t_RParenthesis = r"\)"
+t_Point = r"."
 
 t_ignore = " \t"
 t_ignore_comment = r"\#.*"
@@ -153,6 +155,12 @@ class ExecutionResult:
     pass
 
 
+class FatalError (Exception):
+
+    def __init__(self, message):
+        self.message = message
+
+
 class QueryTerminal (threading.Thread):
 
     def __init__(self, auto_commit=True, log_prefix=""):
@@ -167,6 +175,7 @@ class QueryTerminal (threading.Thread):
             print("Connection Warning: ", w)
         except Exception as e:
             print("Connection Exception: ", e)
+            raise FatalError(e.args)
 
         # item of queue is a list
         # list idx 0: task type [0 close, 1 execute query, 2 fetch result]
@@ -417,9 +426,14 @@ def p_assignment_expression(p):
     output_file.write("%s%s = %s\n" % (" " * line_offset, p[1], p[3]))
 
 
-def p_variable(p):
+def p_variable_id(p):
     r"""Variable : ID"""
     p[0] = p[1]
+
+
+def p_variable_member(p):
+    r"""Variable : Variable Point ID"""
+    p[0] = "%s.%s" % (p[1], p[3])
 
 
 def p_expression_string(p):
