@@ -48,7 +48,7 @@ tokens = [
 
 
 def t_RawString(t):
-    r"""\"\"\".*\"\"\""""
+    r"""\"\"\"(\"{0,2}[^\"])*\"\"\""""
     t.lexer.lineno += t.value.count('\n')
     return t
 
@@ -114,17 +114,22 @@ lexer = lex.lex()
 
 
 case_name = ""
+case_name_list = []
 line_offset = 0
 output_file = open("real_test.py", mode="w", encoding="utf-8")
-inner_case_seq = 1
 
 
 def p_spec(p):
     r"""Spec : Configuration Cases"""
     output_file.write("""
 if __name__ == '__main__':
-    unittest.main()
+    su = unittest.TestSuite()
 """)
+
+    for case_name in case_name_list:
+        output_file.write("    su.addTest(MyTestCase(\"%s\"))\n" % case_name)
+
+    output_file.write("    unittest.TextTestRunner(verbosity=1).run(su)\n")
 
 
 def p_configuration(p):
@@ -144,15 +149,20 @@ import traceback""")
     output_file.write("""
 
 
+class ExecutionResult:
+    pass
+
+
 class QueryTerminal (threading.Thread):
 
-    def __init__(self, auto_commit=True):
+    def __init__(self, auto_commit=True, log_prefix=""):
         super(QueryTerminal, self).__init__()
         try:
             self.connection = connector.connect(**config)
             self.connection.set_auto_commit(auto_commit)
             self.cursor = self.connection.cursor()
             self.stored_result_dict = {}
+            self.log_prefix = log_prefix
         except Warning as w:
             print("Connection Warning: ", w)
         except Exception as e:
@@ -186,18 +196,20 @@ class QueryTerminal (threading.Thread):
                 if query[0] == 1:
                     self.status = 2
                     self.reset_result()
-                    print("[INFO] execute query:", query[1])
+                    print("%s>>[INFO] execute query: %s" % (self.log_prefix, query[1]))
                     time_start = time.time()
                     self.cursor.execute(query[1])
                     time_end = time.time()
-                    print("[INFO]success after ", round(time_end - time_start, 3), "s")
+                    print("%s>>[INFO]success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
 
                 if query[0] == 2:
-                    print("[INFO] fetch result")
+                    print("%s>>[INFO] fetch result" % self.log_prefix)
                     time_start = time.time()
                     self.stored_result_dict[query[1]] = self.cursor.fetchall()
                     time_end = time.time()
-                    print("[INFO] success after ", round(time_end - time_start, 3), "s")
+                    print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
+
+                self.last_execution_result = [0, "operation success"]
 
             except connector.Warning as w:
                 print("query:", query[1], w)
@@ -223,8 +235,11 @@ class QueryTerminal (threading.Thread):
             print(row)
         return self.stored_result_dict[name]
 
-    def get_last_ret_code(self):
-        return self.last_execution_result[0]
+    def get_last_execution_result(self):
+        ret = ExecutionResult()
+        ret.code = self.last_execution_result[0]
+        ret.message = self.last_execution_result[1]
+        return ret
 
     def execute(self, query):
         self.task_queue.put([1, query, 0])
@@ -256,19 +271,20 @@ def p_case_name(p):
     r"""CaseName : ID"""
     global case_name
     case_name = p[0] = p[1]
+    case_name_list.append(case_name)
 
 
 def p_case_start(p):
     r"""CaseStart : LBrace"""
-    global line_offset, inner_case_seq
+    global line_offset
     line_offset = 4
-    output_file.write("\n%sdef test_%s_%s(self):\n" % (" " * line_offset, inner_case_seq, case_name))
-    inner_case_seq += 1
+    output_file.write("\n%sdef %s(self):\n" % (" " * line_offset, case_name))
     line_offset += 4
     output_file.write("%sterminals = []\n" % (" " * line_offset))
     output_file.write("%stry:\n" % (" " * line_offset))
     line_offset += 4
-    output_file.write("%scase_terminal = QueryTerminal()\n" % (" " * line_offset))
+    output_file.write("%scase_terminal = QueryTerminal(log_prefix=\"[%s:case_terminal]\")\n"
+                      % (" " * line_offset, case_name))
     output_file.write("%scase_terminal.start()\n" % (" " * line_offset))
     output_file.write("%sterminals.append(case_terminal)\n" % (" " * line_offset))
 
@@ -374,7 +390,7 @@ def p_statement_body_declaration(p):
 def p_declaration(p):
     r"""Declaration : Terminal TermList"""
     for term in p[2]:
-        output_file.write("%s%s = QueryTerminal()\n" % (" " * line_offset, term))
+        output_file.write("%s%s = QueryTerminal(log_prefix=\"[%s:%s]\")\n" % (" " * line_offset, term, case_name, term))
         output_file.write("%s%s.start()\n" % (" " * line_offset, term))
         output_file.write("%sterminals.append(%s)\n" % (" " * line_offset, term))
 
@@ -423,7 +439,7 @@ def p_expression_scoped_statement(p):
     if p[1][1][0]:
         output_file.write("%stemp_var = %s.get_result_set(\"%s\")\n" % (" " * line_offset, p[1][0], p[1][1][1]))
     else:
-        output_file.write("%stemp_var = %s.get_last_ret_code()\n" % (" " * line_offset, p[1][0]))
+        output_file.write("%stemp_var = %s.get_last_execution_result()\n" % (" " * line_offset, p[1][0]))
 
     p[0] = "temp_var"
 
