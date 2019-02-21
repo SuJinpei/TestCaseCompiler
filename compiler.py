@@ -271,6 +271,7 @@ def p_case_name(p):
     r"""CaseName : ID"""
     global case_name
     case_name = p[0] = p[1]
+    case_name = "test_" + case_name
     case_name_list.append(case_name)
 
 
