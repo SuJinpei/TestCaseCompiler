@@ -28,7 +28,8 @@ reserved_key_words = {
     'expect_no_substr': 'ExpectNoSubStr',
     'expect_in': 'ExpectIn',
     'expect_not_in': 'ExpectNotIn',
-    'Config': 'Config'
+    'Config': 'Config',
+    'Tuple': 'Tuple'
 }
 
 tokens = [
@@ -222,8 +223,9 @@ class QueryTerminal (threading.Thread):
                 self.last_execution_result = [0, "operation success"]
 
             except connector.Error as e:
+                time_end = time.time()
                 code = self.exception_to_code(e)
-                print("query exception:[code]%s, [msg]:%s" % (code, e))
+                print("failed after %ss, Error:[code]%s, [msg]:%s" % (round(time_end - time_start, 3), code, e))
                 self.last_execution_result = [self.exception_to_code(e), e]
 
             self.task_queue.task_done()
@@ -256,11 +258,11 @@ class QueryTerminal (threading.Thread):
         self.task_queue.join()
 
     def exception_to_code(self, e):
-        m = re.findall(r"\*\*\* ERROR\[(.+?)\]", str(e))
-        if m is None:
-            return 0
+        if isinstance(e, connector.Error):
+            error_list = self.cursor.get_error_list()
+            return 0 - error_list[0].sql_code
         else:
-            return int(m[0])
+            return 0
 
 class MyTestCase (unittest.TestCase):
 """)
@@ -467,6 +469,19 @@ def p_expression_scoped_statement(p):
 def p_expression_variable(p):
     r"""Expression : Variable"""
     p[0] = p[1]
+
+
+def p_expression_tuple(p):
+    r"""Expression : TupleExpression"""
+    p[0] = p[1]
+
+
+def p_expression_tuple_constructor(p):
+    r"""TupleExpression : Tuple LParenthesis String RParenthesis"""
+    if p[3].startswith("\"\"\""):
+        p[0] = p[3][3:(len(p[3]) - 3)]
+    else:
+        p[0] = p[3][1:(len(p[3]) - 1)]
 
 
 def p_statement_body_assertion(p):
