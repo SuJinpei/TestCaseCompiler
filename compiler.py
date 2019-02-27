@@ -238,6 +238,7 @@ class QueryTerminal (threading.Thread):
                 self.task_queue.task_done()
         except Exception as e:
             sys.stderr.write("%s>>[ERROR] %s" % (self.log_prefix, e))
+            traceback.print_exc()
             self.status = 4
             self.task_queue.task_done()
 
