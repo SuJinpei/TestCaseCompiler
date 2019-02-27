@@ -146,6 +146,7 @@ import time
 import queue
 import pdbc.trafodion.connector as connector
 import unittest
+import sys
 import re
 import traceback""")
 
@@ -185,7 +186,7 @@ class QueryTerminal (threading.Thread):
         # list idx 2: additional control info [0 nothing]
         self.task_queue = queue.Queue(20)
 
-        # 0 not start, 1 waiting input, 2 executing, 3 down
+        # 0 not start, 1 waiting input, 2 executing, 3 down,  4 fatal error
         self.status = 0
 
         # idx 0: last execution return code, 0 success, 1 warning, 2 error
@@ -193,41 +194,47 @@ class QueryTerminal (threading.Thread):
         self.last_execution_result = [0, ""]
 
     def run(self):
-        while True:
-            self.status = 1
-            query = self.task_queue.get()
+        try:
+            while True:
+                self.status = 1
+                query = self.task_queue.get()
 
-            if query[0] == 0:
-                self.status = 3
-                self.cursor.close()
-                self.connection.close()
-                break
+                if query[0] == 0:
+                    self.status = 3
+                    self.cursor.close()
+                    self.connection.close()
+                    break
 
-            try:
-                if query[0] == 1:
-                    self.status = 2
-                    self.reset_result()
-                    print("%s>>[INFO] execute query: %s" % (self.log_prefix, query[1]))
-                    time_start = time.time()
-                    self.cursor.execute(query[1])
+                try:
+                    if query[0] == 1:
+                        self.status = 2
+                        self.reset_result()
+                        print("%s>>[INFO] execute query: %s" % (self.log_prefix, query[1]))
+                        time_start = time.time()
+                        self.cursor.execute(query[1])
+                        time_end = time.time()
+                        print("%s>>[INFO]success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
+
+                    if query[0] == 2:
+                        print("%s>>[INFO] fetch result" % self.log_prefix)
+                        time_start = time.time()
+                        self.stored_result_dict[query[1]] = self.cursor.fetchall()
+                        time_end = time.time()
+                        print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
+
+                    self.last_execution_result = [0, "operation success"]
+
+                except connector.Error as e:
                     time_end = time.time()
-                    print("%s>>[INFO]success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
+                    code = self.exception_to_code(e)
+                    print("%s>>[ERROR]failed after %ss, Error:[code]%s, [msg]:%s" %
+                          (self.log_prefix, round(time_end - time_start, 3), code, e))
+                    self.last_execution_result = [self.exception_to_code(e), e]
 
-                if query[0] == 2:
-                    print("%s>>[INFO] fetch result" % self.log_prefix)
-                    time_start = time.time()
-                    self.stored_result_dict[query[1]] = self.cursor.fetchall()
-                    time_end = time.time()
-                    print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
-
-                self.last_execution_result = [0, "operation success"]
-
-            except connector.Error as e:
-                time_end = time.time()
-                code = self.exception_to_code(e)
-                print("failed after %ss, Error:[code]%s, [msg]:%s" % (round(time_end - time_start, 3), code, e))
-                self.last_execution_result = [self.exception_to_code(e), e]
-
+                self.task_queue.task_done()
+        except Exception as e:
+            sys.stderr.write("%s>>[ERROR] %s" % (self.log_prefix, e))
+            self.status = 4
             self.task_queue.task_done()
 
     def close(self):
@@ -256,6 +263,8 @@ class QueryTerminal (threading.Thread):
 
     def wait_finish(self):
         self.task_queue.join()
+        if self.status == 4:
+            raise FatalError(self.log_prefix)
 
     def exception_to_code(self, e):
         if isinstance(e, connector.Error):
@@ -492,48 +501,64 @@ def p_statement_body_assertion(p):
 def p_assertion_expect_equal(p):
     r"""Assertion : ExpectEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
     output_file.write("%sself.assertEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_not_equal(p):
     r"""Assertion : ExpectNotEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
     output_file.write("%sself.assertNotEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_str_equal(p):
     r"""Assertion : ExpectStrEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect string %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
     output_file.write("%sself.assertEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_str_not_equal(p):
     r"""Assertion : ExpectStrNotEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect string %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
     output_file.write("%sself.assertNotEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_sub_str(p):
     r"""Assertion : ExpectSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect %s(%%s)\\ncontains\\n%s(%%s)\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
     output_file.write("%sself.assertTrue(str(%s) in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
 def p_assertion_expect_no_sub_str(p):
     r"""Assertion : ExpectNoSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect %s(%%s)\\nnot contains\\n%s(%%s)\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
     output_file.write("%sself.assertTrue(str(%s) not in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
 def p_assertion_expect_in(p):
     r"""Assertion : ExpectIn LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect %s(%%s)\\nin\\n%s(%%s)\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
     output_file.write("%sself.assertTrue(%s in %s)\n" % (" " * line_offset, p[5], p[3]))
 
 
 def p_assertion_expect_not_in(p):
     r"""Assertion : ExpectNotIn LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
+    output_file.write("%sprint(\"expect %s(%%s)\\nnot in\\n%s(%%s)\\n\" %% (%s, %s))\n"
+                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
     output_file.write("%sself.assertTrue(%s not in %s)\n" % (" " * line_offset, p[5], p[3]))
 
 
