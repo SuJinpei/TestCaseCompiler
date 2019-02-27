@@ -122,6 +122,10 @@ line_offset = 0
 output_file = open("real_test.py", mode="w", encoding="utf-8")
 
 
+def slash_quote(string):
+    return string.replace('"', r'\"')
+
+
 def p_spec(p):
     r"""Spec : Configuration Cases"""
     output_file.write("""
@@ -502,7 +506,7 @@ def p_assertion_expect_equal(p):
     r"""Assertion : ExpectEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
+                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.assertEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
 
 
@@ -510,7 +514,7 @@ def p_assertion_expect_not_equal(p):
     r"""Assertion : ExpectNotEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
+                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.assertNotEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
 
 
@@ -518,7 +522,7 @@ def p_assertion_expect_str_equal(p):
     r"""Assertion : ExpectStrEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect string %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
+                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.assertEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
 
 
@@ -526,7 +530,7 @@ def p_assertion_expect_str_not_equal(p):
     r"""Assertion : ExpectStrNotEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect string %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[3], p[5], p[3], p[5]))
+                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.assertNotEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
 
 
@@ -534,7 +538,7 @@ def p_assertion_expect_sub_str(p):
     r"""Assertion : ExpectSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\ncontains\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
+                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
     output_file.write("%sself.assertTrue(str(%s) in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
@@ -542,7 +546,7 @@ def p_assertion_expect_no_sub_str(p):
     r"""Assertion : ExpectNoSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nnot contains\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
+                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
     output_file.write("%sself.assertTrue(str(%s) not in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
@@ -550,7 +554,7 @@ def p_assertion_expect_in(p):
     r"""Assertion : ExpectIn LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nin\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
+                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
     output_file.write("%sself.assertTrue(%s in %s)\n" % (" " * line_offset, p[5], p[3]))
 
 
@@ -558,7 +562,7 @@ def p_assertion_expect_not_in(p):
     r"""Assertion : ExpectNotIn LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nnot in\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, p[5], p[3], p[5], p[3]))
+                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
     output_file.write("%sself.assertTrue(%s not in %s)\n" % (" " * line_offset, p[5], p[3]))
 
 
