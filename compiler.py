@@ -278,7 +278,29 @@ class QueryTerminal (threading.Thread):
         else:
             return 0
 
+
 class MyTestCase (unittest.TestCase):
+
+    def setUp(self):
+        self.fails = []
+
+    def expectEqual(self, first, second, msg=None):
+        try:
+            self.assertEqual(first, second, msg)
+        except AssertionError as e:
+            self.fails.append(e)
+
+    def expectNotEqual(self, first, second, msg=None):
+        try:
+            self.assertNotEqual(first, second, msg)
+        except AssertionError as e:
+            self.fails.append(e)
+
+    def expectTrue(self, expr, msg=None):
+        try:
+            self.assertTrue(expr, msg)
+        except AssertionError as e:
+            self.fails.append(e)
 """)
 
 
@@ -508,7 +530,7 @@ def p_assertion_expect_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.assertEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_not_equal(p):
@@ -516,7 +538,7 @@ def p_assertion_expect_not_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.assertNotEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectNotEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_str_equal(p):
@@ -524,7 +546,7 @@ def p_assertion_expect_str_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect string %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.assertEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_str_not_equal(p):
@@ -532,7 +554,7 @@ def p_assertion_expect_str_not_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect string %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.assertNotEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectNotEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
 
 
 def p_assertion_expect_sub_str(p):
@@ -540,7 +562,7 @@ def p_assertion_expect_sub_str(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\ncontains\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
-    output_file.write("%sself.assertTrue(str(%s) in str(%s))\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(str(%s) in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
 def p_assertion_expect_no_sub_str(p):
@@ -548,7 +570,7 @@ def p_assertion_expect_no_sub_str(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nnot contains\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
-    output_file.write("%sself.assertTrue(str(%s) not in str(%s))\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(str(%s) not in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
 def p_assertion_expect_in(p):
@@ -556,7 +578,7 @@ def p_assertion_expect_in(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nin\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
-    output_file.write("%sself.assertTrue(%s in %s)\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(%s in %s)\n" % (" " * line_offset, p[5], p[3]))
 
 
 def p_assertion_expect_not_in(p):
@@ -564,14 +586,17 @@ def p_assertion_expect_not_in(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nnot in\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
-    output_file.write("%sself.assertTrue(%s not in %s)\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(%s not in %s)\n" % (" " * line_offset, p[5], p[3]))
 
 
 def p_case_end(p):
     r"""CaseEnd : RBrace"""
     global line_offset
-    line_offset -= 4
 
+    output_file.write("\n%sif len(self.fails) > 0:\n" % (" " * line_offset))
+    output_file.write("%s    self.fail(self.fails)\n\n" % (" " * line_offset))
+
+    line_offset -= 4
     output_file.write("%sexcept FatalError as fe:\n" % (" " * line_offset))
     output_file.write("%s    print(\"Fatal Error:\", fe)\n" % (" " * line_offset))
     output_file.write("%s    exit(-1)\n" % (" " * line_offset))
