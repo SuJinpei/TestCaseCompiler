@@ -365,7 +365,8 @@ def p_statement_body_query(p):
 def p_scoped_statement_no_term(p):
     r"""ScopedStatement : Colon ScopedStatementBody"""
     output_file.write("%scase_terminal.execute(%s)\n" % (" " * line_offset, p[2][1]))
-    if p[2][0]:
+    # work around for server execution bug
+    if p[2][0] or "select".upper() in p[2][1].upper():
         output_file.write("%scase_terminal.store_result(\"result\")\n" % (" " * line_offset))
     output_file.write("%scase_terminal.wait_finish()\n" % (" " * line_offset))
     p[0] = ("case_terminal", (p[2][0], "result"))
@@ -406,7 +407,8 @@ def p_result_set_query(p):
 def p_scoped_statement_no_term_async(p):
     r"""ScopedStatement : Async Colon ScopedStatementBody"""
     output_file.write("%scase_terminal.execute(%s)\n" % (" " * line_offset, p[2][1]))
-    if p[2][0]:
+    # work around for server execution bug
+    if p[2][0] or "select".upper() in p[2][1].upper():
         output_file.write("%scase_terminal.store_result(\"result\")\n" % (" " * line_offset))
     p[0] = ("case_terminal", (p[2][0], "result"))
 
@@ -416,7 +418,8 @@ def p_scoped_statement_with_term(p):
     global line_offset
     # no result set
     output_file.write("%s%s.execute(%s)\n" % (" " * line_offset, p[1], p[3][1]))
-    if p[3][0]:
+    # work around for server execution bug.
+    if p[3][0] or "select".upper() in p[3][1].upper():
         output_file.write("%s%s.store_result(\"scope_term_result\")\n" % (" " * line_offset, p[1]))
     output_file.write("%s%s.wait_finish()\n" % (" " * line_offset, p[1]))
     p[0] = (p[1], (p[3][0], "scope_term_result"))
@@ -430,7 +433,8 @@ def p_term(p):
 def p_scoped_statement_with_term_async(p):
     r"""ScopedStatement : Async Term Colon ScopedStatementBody"""
     output_file.write("%s%s.execute(%s)\n" % (" " * line_offset, p[2], p[4]))
-    if p[4][0]:
+    # work around for server execution bug
+    if p[4][0] or "select".upper() in p[4][0]:
         output_file.write("%s%s.store_result(\"scope_term_result\")\n" % (" " * line_offset, p[2]))
     p[0] = (p[2], (p[4][0], "scope_term_result"))
 
