@@ -567,7 +567,7 @@ def p_assertion_expect_sub_str(p):
     r"""Assertion : ExpectSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\ncontains\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
+                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectTrue(str(%s) in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
@@ -575,7 +575,7 @@ def p_assertion_expect_no_sub_str(p):
     r"""Assertion : ExpectNoSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nnot contains\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
+                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectTrue(str(%s) not in str(%s))\n" % (" " * line_offset, p[5], p[3]))
 
 
