@@ -223,6 +223,9 @@ class QueryTerminal (threading.Thread):
                         self.stored_result_dict[query[1]] = self.cursor.fetchall()
                         time_end = time.time()
                         print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
+                        print("%s>>[INFO] Fetched result:\\n")
+                        for row in self.stored_result_dict[query[1]]:
+                            print(row)
 
                     self.last_execution_result = [0, "operation success"]
 
@@ -254,8 +257,6 @@ class QueryTerminal (threading.Thread):
         self.task_queue.put([2, name, 0])
 
     def get_result_set(self, name):
-        for row in self.stored_result_dict[name]:
-            print(row)
         return self.stored_result_dict[name]
 
     def get_last_execution_result(self):
