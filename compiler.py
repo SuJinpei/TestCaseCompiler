@@ -205,8 +205,6 @@ class QueryTerminal (threading.Thread):
 
                 if query[0] == 0:
                     self.status = 3
-                    self.cursor.close()
-                    self.connection.close()
                     break
 
                 try:
@@ -241,6 +239,9 @@ class QueryTerminal (threading.Thread):
             traceback.print_exc()
             self.status = 4
             self.task_queue.task_done()
+        finally:
+            self.cursor.close()
+            self.connection.close()
 
     def close(self):
         self.task_queue.put([0, "shut down", 0])
@@ -624,11 +625,4 @@ def p_error(p):
 
 
 parser = yacc.yacc()
-
-# parser.parse(text, debug=True)
 parser.parse(text)
-
-# lexer.input(text)
-#
-# for tk in lexer:
-#     print(tk)
