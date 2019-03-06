@@ -272,12 +272,12 @@ class QueryTerminal (threading.Thread):
         if self.status == 4:
             raise FatalError(self.log_prefix)
 
-    def exception_to_code(self, e):
-        if isinstance(e, connector.Error):
-            error_list = self.cursor.get_error_list()
-            return 0 - error_list[0].sql_code
+    @staticmethod
+    def exception_to_code(e):
+        if isinstance(e, connector.Error) or len(e.sqlstate) > 0:
+            return 0 - e.errno[0]
         else:
-            return 0
+            return -1
 
 
 class MyTestCase (unittest.TestCase):
@@ -367,7 +367,7 @@ def p_scoped_statement_no_term(p):
     r"""ScopedStatement : Colon ScopedStatementBody"""
     output_file.write("%scase_terminal.execute(%s)\n" % (" " * line_offset, p[2][1]))
     # work around for server execution bug
-    if p[2][0] or "select".upper() in p[2][1].upper():
+    if p[2][0] or p[2][1].strip('"').lstrip().upper().startswith("select".upper()):
         output_file.write("%scase_terminal.store_result(\"result\")\n" % (" " * line_offset))
     output_file.write("%scase_terminal.wait_finish()\n" % (" " * line_offset))
     p[0] = ("case_terminal", (p[2][0], "result"))
@@ -409,7 +409,7 @@ def p_scoped_statement_no_term_async(p):
     r"""ScopedStatement : Async Colon ScopedStatementBody"""
     output_file.write("%scase_terminal.execute(%s)\n" % (" " * line_offset, p[2][1]))
     # work around for server execution bug
-    if p[2][0] or "select".upper() in p[2][1].upper():
+    if p[2][0] or p[2][1].strip('"').lstrip().upper().startswith("select".upper()):
         output_file.write("%scase_terminal.store_result(\"result\")\n" % (" " * line_offset))
     p[0] = ("case_terminal", (p[2][0], "result"))
 
@@ -420,7 +420,7 @@ def p_scoped_statement_with_term(p):
     # no result set
     output_file.write("%s%s.execute(%s)\n" % (" " * line_offset, p[1], p[3][1]))
     # work around for server execution bug.
-    if p[3][0] or "select".upper() in p[3][1].upper():
+    if p[3][0] or p[3][1].strip('"').lstrip().upper().startswith("select".upper()):
         output_file.write("%s%s.store_result(\"scope_term_result\")\n" % (" " * line_offset, p[1]))
     output_file.write("%s%s.wait_finish()\n" % (" " * line_offset, p[1]))
     p[0] = (p[1], (p[3][0], "scope_term_result"))
@@ -435,7 +435,7 @@ def p_scoped_statement_with_term_async(p):
     r"""ScopedStatement : Async Term Colon ScopedStatementBody"""
     output_file.write("%s%s.execute(%s)\n" % (" " * line_offset, p[2], p[4]))
     # work around for server execution bug
-    if p[4][0] or "select".upper() in p[4][0]:
+    if p[4][0] or p[4][0].strip('"').lstrip().upper().startswith("select".upper()):
         output_file.write("%s%s.store_result(\"scope_term_result\")\n" % (" " * line_offset, p[2]))
     p[0] = (p[2], (p[4][0], "scope_term_result"))
 
