@@ -223,7 +223,7 @@ class QueryTerminal (threading.Thread):
                         self.stored_result_dict[query[1]] = self.cursor.fetchall()
                         time_end = time.time()
                         print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
-                        print("%s>>[INFO] Fetched result:\\n")
+                        print("%s>>[INFO] Fetched result:\\n" % self.log_prefix)
                         for row in self.stored_result_dict[query[1]]:
                             print(row)
 
