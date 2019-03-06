@@ -216,18 +216,18 @@ class QueryTerminal (threading.Thread):
                         self.cursor.execute(query[1])
                         time_end = time.time()
                         print("%s>>[INFO]success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
+                        self.last_execution_result = [0, "operation success"]
 
-                    if query[0] == 2:
+                    if query[0] == 2 and self.last_execution_result[0] == 0:
                         print("%s>>[INFO] fetch result" % self.log_prefix)
                         time_start = time.time()
                         self.stored_result_dict[query[1]] = self.cursor.fetchall()
                         time_end = time.time()
                         print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
-                        print("%s>>[INFO] Fetched result:\\n" % self.log_prefix)
+                        print("%s>>[INFO] Fetched result:\n" % self.log_prefix)
                         for row in self.stored_result_dict[query[1]]:
                             print(row)
-
-                    self.last_execution_result = [0, "operation success"]
+                        self.last_execution_result = [0, "operation success"]
 
                 except connector.Error as e:
                     time_end = time.time()
