@@ -167,6 +167,18 @@ class FatalError (Exception):
     def __init__(self, message):
         self.message = message
 
+    def __str__(self):
+        self.message
+
+
+class ExpectationError (AssertionError):
+
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __str__(self):
+        return self.msg
+
 
 class QueryTerminal (threading.Thread):
 
@@ -286,23 +298,23 @@ class MyTestCase (unittest.TestCase):
     def setUp(self):
         self.fails = []
 
-    def expectEqual(self, first, second, msg=None):
+    def expectEqual(self, first, second, msg=""):
         try:
             self.assertEqual(first, second, msg)
         except AssertionError as e:
-            self.fails.append(e)
+            self.fails.append(ExpectationError("%s::%s != %s" % (msg, first, second)))
 
-    def expectNotEqual(self, first, second, msg=None):
+    def expectNotEqual(self, first, second, msg=""):
         try:
             self.assertNotEqual(first, second, msg)
         except AssertionError as e:
-            self.fails.append(e)
+            self.fails.append(ExpectationError("%s::%s == %s" % (msg, first, second)))
 
-    def expectTrue(self, expr, msg=None):
+    def expectTrue(self, expr, msg=""):
         try:
             self.assertTrue(expr, msg)
         except AssertionError as e:
-            self.fails.append(e)
+            self.fails.append(ExpectationError("%s::%s is not True" % (msg, expr)))
 """)
 
 
@@ -536,7 +548,8 @@ def p_assertion_expect_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.expectEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectEqual(%s, %s, \"%s\")\n" %
+                      (" " * line_offset, p[3], p[5], "expect %s == %s" % (slash_quote(p[3]), slash_quote(p[5]))))
 
 
 def p_assertion_expect_not_equal(p):
@@ -544,7 +557,8 @@ def p_assertion_expect_not_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.expectNotEqual(%s, %s)\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectNotEqual(%s, %s, \"%s\")\n" %
+                      (" " * line_offset, p[3], p[5], "expect %s != %s" % (slash_quote(p[3]), slash_quote(p[5]))))
 
 
 def p_assertion_expect_str_equal(p):
@@ -552,7 +566,8 @@ def p_assertion_expect_str_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect string %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.expectEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectEqual(str(%s), str(%s), \"%s\")\n" %
+                      (" " * line_offset, p[3], p[5], "expect str(%s) == str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
 
 def p_assertion_expect_str_not_equal(p):
@@ -560,7 +575,8 @@ def p_assertion_expect_str_not_equal(p):
     global line_offset
     output_file.write("%sprint(\"expect string %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.expectNotEqual(str(%s), str(%s))\n" % (" " * line_offset, p[3], p[5]))
+    output_file.write("%sself.expectNotEqual(str(%s), str(%s), \"%s\")\n" %
+                      (" " * line_offset, p[3], p[5], "expect str(%s) != str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
 
 def p_assertion_expect_sub_str(p):
@@ -568,7 +584,8 @@ def p_assertion_expect_sub_str(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\ncontains\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.expectTrue(str(%s) in str(%s))\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(str(%s) in str(%s), \"%s\")\n" %
+                      (" " * line_offset, p[5], p[3], "expect str(%s) has str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
 
 def p_assertion_expect_no_sub_str(p):
@@ -576,7 +593,8 @@ def p_assertion_expect_no_sub_str(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nnot contains\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
-    output_file.write("%sself.expectTrue(str(%s) not in str(%s))\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(str(%s) not in str(%s), \"%s\")\n" %
+                      (" " * line_offset, p[5], p[3], "expect str(%s) no str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
 
 def p_assertion_expect_in(p):
@@ -584,7 +602,8 @@ def p_assertion_expect_in(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nin\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
-    output_file.write("%sself.expectTrue(%s in %s)\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(%s in %s, \"%s\")\n" %
+                      (" " * line_offset, p[5], p[3], "expect %s in %s" % (slash_quote(p[5]), slash_quote(p[4]))))
 
 
 def p_assertion_expect_not_in(p):
@@ -592,7 +611,8 @@ def p_assertion_expect_not_in(p):
     global line_offset
     output_file.write("%sprint(\"expect %s(%%s)\\nnot in\\n%s(%%s)\\n\" %% (%s, %s))\n"
                       % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
-    output_file.write("%sself.expectTrue(%s not in %s)\n" % (" " * line_offset, p[5], p[3]))
+    output_file.write("%sself.expectTrue(%s not in %s, \"%s\")\n" %
+                      (" " * line_offset, p[5], p[3], "expect %s not in %s" % (slash_quote(p[5]), slash_quote(p[3]))))
 
 
 def p_case_end(p):
