@@ -628,10 +628,10 @@ def p_case_end(p):
     output_file.write("%s    exit(-1)\n" % (" " * line_offset))
     output_file.write("%sexcept AssertionError as ae:\n" % (" " * line_offset))
     output_file.write("%s    print(\"Test Case Assertion Error: \", ae.args)\n" % (" " * line_offset))
-    output_file.write("%s    self.fail(ae)\n" % (" " * line_offset))
+    output_file.write("%s    raise\n" % (" " * line_offset))
     output_file.write("%sexcept Exception as e:\n" % (" " * line_offset))
     output_file.write("%s    print(\"Test Case Exception: \", e.args)\n" % (" " * line_offset))
-    output_file.write("%s    self.fail(e)\n" % (" " * line_offset))
+    output_file.write("%s    raise\n" % (" " * line_offset))
     output_file.write("%sfinally:\n" % (" " * line_offset))
     line_offset += 4
     output_file.write("%sfor term in terminals:\n" % (" " * line_offset))
