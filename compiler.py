@@ -207,7 +207,7 @@ class QueryTerminal (threading.Thread):
 
         # idx 0: last execution return code, 0 success, 1 warning, 2 error
         # idx 1: last error or warning message if exists
-        self.last_execution_result = [0, ""]
+        self.last_execution_result = [0, "", -1]
 
     def run(self):
         try:
@@ -227,8 +227,9 @@ class QueryTerminal (threading.Thread):
                         time_start = time.time()
                         self.cursor.execute(query[1])
                         time_end = time.time()
-                        print("%s>>[INFO]success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
-                        self.last_execution_result = [0, "operation success"]
+                        print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
+                        self.last_execution_result = [0, "operation success", self.cursor.rowcount]
+                        print("%s>>[INFO] rowcount: %s" % (self.log_prefix, self.cursor.rowcount))
 
                     if query[0] == 2 and self.last_execution_result[0] == 0:
                         print("%s>>[INFO] fetch result" % self.log_prefix)
@@ -239,14 +240,14 @@ class QueryTerminal (threading.Thread):
                         print("%s>>[INFO] Fetched result:\\n" % self.log_prefix)
                         for row in self.stored_result_dict[query[1]]:
                             print(row)
-                        self.last_execution_result = [0, "operation success"]
+                        self.last_execution_result = [0, "operation success", self.cursor.rowcount]
 
                 except connector.Error as e:
                     time_end = time.time()
                     code = self.exception_to_code(e)
                     print("%s>>[ERROR]failed after %ss, Error:[code]%s, [msg]:%s" %
                           (self.log_prefix, round(time_end - time_start, 3), code, e))
-                    self.last_execution_result = [self.exception_to_code(e), e]
+                    self.last_execution_result = [self.exception_to_code(e), e, self.cursor.rowcount]
 
                 self.task_queue.task_done()
         except Exception as e:
@@ -262,7 +263,7 @@ class QueryTerminal (threading.Thread):
         self.task_queue.put([0, "shut down", 0])
 
     def reset_result(self):
-        self.last_execution_result = [0, ""]
+        self.last_execution_result = [0, "", -1]
 
     def store_result(self, name):
         self.stored_result_dict[name] = "not ready"
@@ -275,6 +276,7 @@ class QueryTerminal (threading.Thread):
         ret = ExecutionResult()
         ret.code = self.last_execution_result[0]
         ret.message = self.last_execution_result[1]
+        ret.rowcount = self.last_execution_result[2]
         return ret
 
     def execute(self, query):
@@ -546,8 +548,6 @@ def p_statement_body_assertion(p):
 def p_assertion_expect_equal(p):
     r"""Assertion : ExpectEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectEqual(%s, %s, \"%s\")\n" %
                       (" " * line_offset, p[3], p[5], "expect %s == %s" % (slash_quote(p[3]), slash_quote(p[5]))))
 
@@ -555,8 +555,6 @@ def p_assertion_expect_equal(p):
 def p_assertion_expect_not_equal(p):
     r"""Assertion : ExpectNotEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectNotEqual(%s, %s, \"%s\")\n" %
                       (" " * line_offset, p[3], p[5], "expect %s != %s" % (slash_quote(p[3]), slash_quote(p[5]))))
 
@@ -564,8 +562,6 @@ def p_assertion_expect_not_equal(p):
 def p_assertion_expect_str_equal(p):
     r"""Assertion : ExpectStrEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect string %s( %%s )\\nequal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectEqual(str(%s), str(%s), \"%s\")\n" %
                       (" " * line_offset, p[3], p[5], "expect str(%s) == str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
@@ -573,8 +569,6 @@ def p_assertion_expect_str_equal(p):
 def p_assertion_expect_str_not_equal(p):
     r"""Assertion : ExpectStrNotEqual LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect string %s( %%s )\\nnot equal\\n%s( %%s )\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectNotEqual(str(%s), str(%s), \"%s\")\n" %
                       (" " * line_offset, p[3], p[5], "expect str(%s) != str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
@@ -582,8 +576,6 @@ def p_assertion_expect_str_not_equal(p):
 def p_assertion_expect_sub_str(p):
     r"""Assertion : ExpectSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect %s(%%s)\\ncontains\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectTrue(str(%s) in str(%s), \"%s\")\n" %
                       (" " * line_offset, p[5], p[3], "expect str(%s) has str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
@@ -591,8 +583,6 @@ def p_assertion_expect_sub_str(p):
 def p_assertion_expect_no_sub_str(p):
     r"""Assertion : ExpectNoSubStr LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect %s(%%s)\\nnot contains\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[3]), slash_quote(p[5]), p[3], p[5]))
     output_file.write("%sself.expectTrue(str(%s) not in str(%s), \"%s\")\n" %
                       (" " * line_offset, p[5], p[3], "expect str(%s) no str(%s)" % (slash_quote(p[3]), slash_quote(p[5]))))
 
@@ -600,8 +590,6 @@ def p_assertion_expect_no_sub_str(p):
 def p_assertion_expect_in(p):
     r"""Assertion : ExpectIn LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect %s(%%s)\\nin\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
     output_file.write("%sself.expectTrue(%s in %s, \"%s\")\n" %
                       (" " * line_offset, p[5], p[3], "expect %s in %s" % (slash_quote(p[5]), slash_quote(p[4]))))
 
@@ -609,8 +597,6 @@ def p_assertion_expect_in(p):
 def p_assertion_expect_not_in(p):
     r"""Assertion : ExpectNotIn LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sprint(\"expect %s(%%s)\\nnot in\\n%s(%%s)\\n\" %% (%s, %s))\n"
-                      % (" " * line_offset, slash_quote(p[5]), slash_quote(p[3]), p[5], p[3]))
     output_file.write("%sself.expectTrue(%s not in %s, \"%s\")\n" %
                       (" " * line_offset, p[5], p[3], "expect %s not in %s" % (slash_quote(p[5]), slash_quote(p[3]))))
 
