@@ -29,7 +29,8 @@ reserved_key_words = {
     'expect_in': 'ExpectIn',
     'expect_not_in': 'ExpectNotIn',
     'Config': 'Config',
-    'Tuple': 'Tuple'
+    'Tuple': 'Tuple',
+    'Shell': 'Shell'
 }
 
 tokens = [
@@ -151,6 +152,7 @@ import queue
 import pdbc.trafodion.connector as connector
 import unittest
 import sys
+import os
 import re
 import traceback""")
 
@@ -599,6 +601,11 @@ def p_assertion_expect_not_in(p):
     global line_offset
     output_file.write("%sself.expectTrue(%s not in %s, \"%s\")\n" %
                       (" " * line_offset, p[5], p[3], "expect %s not in %s" % (slash_quote(p[5]), slash_quote(p[3]))))
+
+
+def p_statement_body_shell(p):
+    r"""StatementBody : Shell LParenthesis String RParenthesis"""
+    output_file.write("%sos.system(%s)\n" % (" " * line_offset, p[3]))
 
 
 def p_case_end(p):
