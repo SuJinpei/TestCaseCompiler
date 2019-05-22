@@ -1,0 +1,38 @@
+
+2019/5/17
+====================================================================
+Support GroupTerminal
+
+use case:
+
+split_value =
+
+Terminal T1(10);
+status = T1:"update testtb set c0 = 1 where id = 1";
+expect_in(status.code, 0)
+expect_in(status.message, '8806')
+
+A example:
+=============
+
+TestCase CASE001
+{
+    # IS lock should block X lock for read committed level, Hbase.get / delete   TABLE_LCOK
+    Terminal T1(10) T2(10);
+    statusValue = T1:"drop table emp_temp cascade";
+    T1: "create table emp_temp like  employee";
+    T1: "insert into emp_temp select * from employee";
+
+    T1: "begin work";
+    t1rs1 = T1:ResultSet("select employeeno, ename, job  from emp_temp where employeeno=7788");
+
+    T2: "begin work";
+    statusValue = T2:"drop table emp_temp";
+    expect_in(statusValue.code, 30052);
+    expect_in(statusValue.message, "LOCK TIMEOUT ERROR");
+
+    T1: "commit";
+    t2rs1 = T2:ResultSet("select employeeno, ename, job from emp_temp where employeeno=7788");
+    expect_equal(t2rs1, t1rs1);
+}
+

@@ -187,11 +187,11 @@ class QueryTerminal (threading.Thread):
     def __init__(self, auto_commit=True, log_prefix=""):
         super(QueryTerminal, self).__init__()
         try:
-            self.connection = connector.connect(**config)
-            self.connection.set_auto_commit(auto_commit)
-            self.cursor = self.connection.cursor()
+            self.connection = None
+            self.cursor = None
             self.stored_result_dict = {}
             self.log_prefix = log_prefix
+            self.need_reconnect = True
         except Warning as w:
             print("Connection Warning: ", w)
         except Exception as e:
@@ -213,6 +213,7 @@ class QueryTerminal (threading.Thread):
 
     def run(self):
         try:
+
             while True:
                 self.status = 1
                 query = self.task_queue.get()
@@ -222,16 +223,22 @@ class QueryTerminal (threading.Thread):
                     break
 
                 try:
+                    if self.need_reconnect:
+                        print("%s>>[INFO] connect to DB server" % self.log_prefix)
+                        self.reconnect()
+
                     if query[0] == 1:
                         self.status = 2
                         self.reset_result()
-                        print("%s>>[INFO] execute query: %s" % (self.log_prefix, query[1]))
+                        print("%s>>[INFO] SQL> %s" % (self.log_prefix, query[1]))
                         time_start = time.time()
                         self.cursor.execute(query[1])
                         time_end = time.time()
                         print("%s>>[INFO] success after %ss" % (self.log_prefix, round(time_end - time_start, 3)))
-                        self.last_execution_result = [0, "operation success", self.cursor.rowcount]
-                        print("%s>>[INFO] rowcount: %s" % (self.log_prefix, self.cursor.rowcount))
+                        if not (query[1].startswith("begin") or query[1].startswith("rollback") or query[1].startswith("commit") or query[1].startswith("select")):
+                            self.last_execution_result = [0, "operation success", self.cursor.rowcount]
+                            print("%s>>[INFO] rowcount: %s" % (self.log_prefix, self.cursor.rowcount))
+                        print("")
 
                     if query[0] == 2 and self.last_execution_result[0] == 0:
                         print("%s>>[INFO] fetch result" % self.log_prefix)
@@ -242,7 +249,9 @@ class QueryTerminal (threading.Thread):
                         print("%s>>[INFO] Fetched result:\\n" % self.log_prefix)
                         for row in self.stored_result_dict[query[1]]:
                             print(row)
+                        print("%s>>[INFO] rowcount: %s" % (self.log_prefix, self.cursor.rowcount))
                         self.last_execution_result = [0, "operation success", self.cursor.rowcount]
+                        print("")
 
                 except connector.Error as e:
                     time_end = time.time()
@@ -258,8 +267,10 @@ class QueryTerminal (threading.Thread):
             self.status = 4
             self.task_queue.task_done()
         finally:
-            self.cursor.close()
-            self.connection.close()
+            if self.cursor:
+                self.cursor.close()
+            if self.connection:
+                self.connection.close()
 
     def close(self):
         self.task_queue.put([0, "shut down", 0])
@@ -276,7 +287,7 @@ class QueryTerminal (threading.Thread):
 
     def get_last_execution_result(self):
         ret = ExecutionResult()
-        ret.code = self.last_execution_result[0]
+        ret.code = abs(self.last_execution_result[0])
         ret.message = self.last_execution_result[1]
         ret.rowcount = self.last_execution_result[2]
         return ret
@@ -289,12 +300,71 @@ class QueryTerminal (threading.Thread):
         if self.status == 4:
             raise FatalError(self.log_prefix)
 
+    def reconnect(self):
+        self.connection = connector.connect(**config)
+        self.connection.set_auto_commit(True)
+        self.cursor = self.connection.cursor()
+        self.need_reconnect = False
+
     @staticmethod
     def exception_to_code(e):
         if isinstance(e, connector.Error) or len(e.sqlstate) > 0:
             return 0 - e.errno[0]
         else:
             return -1
+
+
+class GroupTerminal:
+
+    def __init__(self):
+        self.terms = []
+
+    def execute(self, query):
+        for term in self.terms:
+            term.execute(query)
+
+    def wait_finish(self):
+        for term in self.terms:
+            term.wait_finish()
+
+    def store_result(self, name):
+        for term in self.terms:
+            term.store_result(name)
+
+    def get_last_execution_result(self):
+        if len(self.terms) > 1:
+            ret = ExecutionResult()
+            ret.code = []
+            ret.message = []
+            ret.rowcount = []
+            for term in self.terms:
+                tmp = term.get_last_execution_result()
+                ret.code.append(tmp.code)
+                ret.message.append(tmp.message)
+                ret.rowcount.append(tmp.rowcount)
+            return ret
+        else:
+            return self.terms[0].get_last_execution_result()
+
+    def get_result_set(self, name):
+        ret = []
+        for term in self.terms:
+            ret.append(term.get_result_set(name))
+        if len(ret) > 1:
+            return ret
+        else:
+            return ret[0]
+
+    def join(self):
+        for term in self.terms:
+            term.join()
+
+    def close(self):
+        for term in self.terms:
+            term.close()
+
+    def append(self, term):
+        self.terms.append(term)
 
 
 class MyTestCase (unittest.TestCase):
@@ -464,20 +534,33 @@ def p_statement_body_declaration(p):
 
 def p_declaration(p):
     r"""Declaration : Terminal TermList"""
-    for term in p[2]:
-        output_file.write("%s%s = QueryTerminal(log_prefix=\"[%s:%s]\")\n" % (" " * line_offset, term, case_name, term))
-        output_file.write("%s%s.start()\n" % (" " * line_offset, term))
-        output_file.write("%sterminals.append(%s)\n" % (" " * line_offset, term))
+    for term_group in p[2]:
+        output_file.write("%s%s = GroupTerminal()\n" % (" " * line_offset, term_group[0]))
+        for i in range(term_group[1]):
+            output_file.write("%stmp_term = QueryTerminal(log_prefix=\"[%s:%s]\")\n" %
+                              (" " * line_offset, case_name, "%s(%d)" %(term_group[0], i)))
+            output_file.write("%stmp_term.start()\n" % (" " * line_offset))
+            output_file.write("%s%s.append(tmp_term)\n" % (" " * line_offset, term_group[0]))
+        output_file.write("%sterminals.append(%s)\n" % (" " * line_offset, term_group[0]))
 
 
 def p_term_list_list(p):
-    r"""TermList : TermList Term"""
+    r"""TermList : TermList TermGroup"""
     p[0] = p[1] + [p[2]]
 
 
 def p_term_list_term(p):
-    r"""TermList : Term"""
+    r"""TermList : TermGroup"""
     p[0] = [p[1]]
+
+
+def p_term_group(p):
+    r"""TermGroup : Term
+                  | Term LParenthesis Number RParenthesis"""
+    if len(p) > 2:
+        p[0] = (p[1], int(p[3]))
+    else:
+        p[0] = (p[1], 1)
 
 
 def p_statement_body_assignment(p):
@@ -592,8 +675,15 @@ def p_assertion_expect_no_sub_str(p):
 def p_assertion_expect_in(p):
     r"""Assertion : ExpectIn LParenthesis Expression Comma Expression RParenthesis"""
     global line_offset
-    output_file.write("%sself.expectTrue(%s in %s, \"%s\")\n" %
-                      (" " * line_offset, p[5], p[3], "expect %s in %s" % (slash_quote(p[5]), slash_quote(p[4]))))
+    output_file.write("%sif isinstance(%s[0], connector.Error):\n" % (" " * line_offset, slash_quote(p[3])))
+    output_file.write("    %sall_str = ''\n" % (" " * line_offset))
+    output_file.write("    %sfor e in %s:\n" % (" " * line_offset, slash_quote(p[3])))
+    output_file.write("        %sall_str += str(e)\n" % (" " * line_offset))
+    output_file.write("    %sself.expectTrue(%s in all_str, \"%s\")\n" %
+                      (" " * line_offset, p[5], "expect %s in %s" % (slash_quote(p[5]), slash_quote(p[3]))))
+    output_file.write("%selse:\n" % (" " * line_offset))
+    output_file.write("    %sself.expectTrue(%s in %s, \"%s\")\n" %
+                      (" " * line_offset, p[5], p[3], "expect %s in %s" % (slash_quote(p[5]), slash_quote(p[3]))))
 
 
 def p_assertion_expect_not_in(p):
