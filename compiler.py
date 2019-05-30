@@ -220,6 +220,7 @@ class QueryTerminal (threading.Thread):
 
                 if query[0] == 0:
                     self.status = 3
+                    self.task_queue.task_done()
                     break
 
                 try:
